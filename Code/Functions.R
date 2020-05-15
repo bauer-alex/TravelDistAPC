@@ -6,6 +6,9 @@
 # Function to prepare data for further analyses:
 data_preparation <- function(data, thresholds, labels) {
   
+  # Removing of observations:
+  data <- data %>% filter(!is.na(JS_HUR_Reisedistanz))
+  
   # Categorization of travel distances into five categories:
   data <- data %>%
     mutate(JS_HUR_Reisedistanz_cat =
@@ -481,7 +484,10 @@ model_covariate <- function(data, target, method = "gam") {
 ################################################################################
 
 # Function in order to calculate AUC value of a model:
-calculate_auc <- function(data, target, method = "gam", type = "pure") {
+calculate_auc <- function(data, target, method = "gam", type = "pure",
+                          seed = 2020) {
+  
+  set.seed(seed)
   message("Calculate AUC for model ", target, "...")
   data$y <- data[[paste0("y_logit", target)]]
   
@@ -496,7 +502,7 @@ calculate_auc <- function(data, target, method = "gam", type = "pure") {
       model <- model_pure(data_train, target, method = "bam")
     }
     if (type == "covariate") {
-      model <- model_covariate(data_train, method = "bam")
+      model <- model_covariate(data_train, target, method = "bam")
     }
   }
   if (method == "gam") {
@@ -546,13 +552,13 @@ plot_heatmap <- function(model, data, type = "pure") {
            cohort = (period - age))
     
   # Definition of thresholds:
-  age_thresholds         <- seq(10, 100, by = 5)
-  period_thresholds      <- seq(1970, 2020, by = 5)
-  cohort_thresholds      <- c(1946, 1966, 1982, 1994)
+  age_thresholds <- seq(10, 100, by = 5)
+  period_thresholds <- seq(1970, 2020, by = 5)
+  cohort_thresholds <- c(1946, 1966, 1982, 1994)
   plot_dat <- plot_dat %>%
-    mutate(age_cat         = cut(age, breaks = age_thresholds, right = F),
-           period_cat      = cut(period, breaks = period_thresholds, right = F),
-           cohort_cat      = cut(cohort, breaks = cohort_thresholds, right = F))
+    mutate(age_cat = cut(age, breaks = age_thresholds, right = F),
+           period_cat = cut(period, breaks = period_thresholds, right = FALSE),
+           cohort_cat = cut(cohort, breaks = cohort_thresholds, right = FALSE))
   dat_effects <- plot_dat %>%
     group_by(age_cat, period_cat) %>%
     summarize(mean_effect = mean(effect),
@@ -707,18 +713,25 @@ plot_heatmap <- function(model, data, type = "pure") {
 ################################################################################
 
 # Function in order to plot marginal age, period and cohort effects:
-plot_marginal_effects <- function(model_list, data) {
+plot_marginal_effects <- function(model_list, data, type = "pure") {
  
    # Extraction of marginal effects:
   categories <- c("< 500 km", "500 - 1,000 km", "1,000 - 2,000 km",
                   "2,000 - 6,000 km", "> 6,000 km")
-  ages    <- min(data$age):max(data$age)
+  ages <- min(data$age):max(data$age)
   periods <- min(data$period):max(data$period)
-  
+
   plot_dat_list <- lapply(1:length(categories), function(i) {
-    
-    dat_overallEffect <- expand.grid(age    = ages,
-                                     period = periods) %>%
+    # Extraction for each individual model:
+    dat_overallEffect <- expand.grid(age = ages,
+                                     period = periods)
+    if (type == "covariate") {
+      dat_overallEffect <- dat_overallEffect %>%
+        mutate(S_Einkommen_HH = mean(data$S_Einkommen_HH, na.rm = TRUE),
+               S_Haushaltsgroesse = "2 Personen",
+               JS_HUR_Reisedauer = "6 bis 8 Tage")
+    }
+    dat_overallEffect <- dat_overallEffect %>%
       mutate(effect = predict(model_list[[i]], newdata = ., type = "terms",
                               terms = c("te(period,age)"))) %>%
       mutate(cohort = period - age)
@@ -793,8 +806,448 @@ plot_marginal_effects <- function(model_list, data) {
 
 ################################################################################
 
-# Function to visualize covariate effects:
+# Function in order to visualize partial APC plots:
+partial_APC_plots <- function(model, data, variable) {
+  
+  # Definition of a grid:
+  categories <- c("< 500 km", "500 - 1,000 km", "1,000 - 2,000 km",
+                  "2,000 - 6,000 km", "> 6,000 km")
+  ages <- min(data$age):max(data$age)
+  periods <- min(data$period):max(data$period)
+  ylim <- c(0.1, 8)
+  
+  # Data preparation:
+  dat_overallEffect <- expand.grid(age = ages,
+                                   period = periods) %>%
+    mutate(effect = rowSums(predict(object = model, newdata = ., type = "terms",
+                                    terms = c("te(period,age)"))),
+          exp_effect = exp(effect - mean(effect))) %>%
+    mutate(cohort = period - age)
+  dat_age <- dat_overallEffect %>%
+    group_by(age) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
+    mutate(exp_effect = exp(effect - mean(effect)), variable = "Age") %>%
+      dplyr::rename(value = age)
+  dat_period <- dat_overallEffect %>%
+    group_by(period) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
+    mutate(exp_effect = exp(effect - mean(effect)), variable   = "Period") %>%
+      dplyr::rename(value = period)
+  dat_cohort <- dat_overallEffect %>%
+    group_by(cohort) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
+    mutate(exp_effect = exp(effect - mean(effect)), variable = "Cohort") %>%
+      dplyr::rename(value = cohort)
+   
+  
+  theme <- theme_minimal() +
+    theme(text = element_text(size = 12), axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          legend.text = element_text(size = 12),
+          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+          strip.text.y = element_text(size = 12), legend.text.align = 0,
+          strip.placement = "outside", strip.background = element_blank(),
+          axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
+          axis.title.x = element_text(margin = margin(10, 0, 0, 0))) 
+  # Plots for age:
+  if (variable == "age") {
+    # against period
+    ageperiod <- ggplot() +
+      geom_line(data = dat_overallEffect,
+                mapping = aes(x = age, y = exp_effect, group = period,
+                              col = period)) +
+      scale_color_continuous(low = "grey90", high = "grey10", trans = "reverse",
+                             name = "Period",
+                             breaks = as.integer(c(2010, 1980))) +
+      geom_line(data = dat_age,
+                mapping = aes(x = value, y = exp_effect),
+                size = 1.5, col = "RoyalBlue3") +
+      scale_y_continuous(trans  = "log",
+                         breaks = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         labels = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         limits = ylim) +
+      theme + theme(axis.text.y = element_blank()) + ylab(" ") + xlab("Age")
+    # against cohort
+    agecohort <- ggplot() +
+      geom_line(data    = dat_overallEffect,
+                mapping = aes(x = age, y = exp_effect, group = cohort,
+                              col = cohort)) +
+      scale_color_continuous(low = "grey90", high = "grey10", trans = "reverse",
+                             name = "Cohort",
+                             breaks = as.integer(c(2000, 1950, 1900))) +
+      geom_line(data = dat_age,
+                mapping = aes(x = value, y = exp_effect),
+                size = 1.5, col = "RoyalBlue3") +
+      scale_y_continuous(trans  = "log",
+                         breaks = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         labels = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         limits = ylim) +
+      theme + theme(axis.text.y = element_blank()) + ylab(" ") + xlab("Age")
+    # both plots:
+    plots <- ggarrange(plotlist = list(ageperiod, agecohort), ncol = 2,
+                       legend = "bottom")
+  }
+    
+  # Plots for period:
+  if (variable == "period") {
+    # against age
+    periodage <- ggplot() +
+      geom_line(data    = dat_overallEffect,
+                mapping = aes(x = period, y = exp_effect, group = age,
+                              col = age)) +
+      scale_color_continuous(low = "grey90", high = "grey10", name = "Age") +
+      geom_line(data = dat_period,
+                mapping = aes(x = value, y = exp_effect),
+                size = 1.5, col = "RoyalBlue3") +
+      scale_y_continuous(trans  = "log",
+                         breaks = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         labels = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         limits = ylim) +
+      theme + theme(axis.text.y = element_blank()) + ylab(" ") + xlab("Period")
+    # against cohort
+    periodcohort <- ggplot() +
+      geom_line(data    = dat_overallEffect,
+                mapping = aes(x = period, y = exp_effect, group = cohort,
+                              col = cohort)) +
+      scale_color_continuous(low = "grey90", high = "grey10", trans = "reverse",
+                             name = "Cohort",
+                             breaks = as.integer(c(2000, 1950, 1900))) +
+      geom_line(data = dat_period,
+                mapping = aes(x = value, y = exp_effect),
+                size = 1.5, col = "RoyalBlue3") +
+      scale_y_continuous(trans  = "log",
+                         breaks = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         labels = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         limits = ylim) +
+      theme + theme(axis.text.y = element_blank()) + ylab(" ") + xlab("Period")
+    # both plots
+    plots <- ggarrange(plotlist = list(periodage, periodcohort), ncol = 2,
+                       legend = "bottom")
+  }
+  
+  # Plots for cohort:
+  if (variable == "cohort") {
+    # against age:
+    cohortage <- ggplot() +
+      geom_line(data    = dat_overallEffect,
+                mapping = aes(x = cohort, y = exp_effect, group = age,
+                              col = age)) +
+      scale_color_continuous(low = "grey90", high = "grey10", name = "Age") +
+      geom_line(data = dat_cohort,
+                mapping = aes(x = value, y = exp_effect),
+                size = 1.5, col = "RoyalBlue3", alpha =0.8) +
+      scale_y_continuous("Odds Ratio",
+                         trans  = "log",
+                         breaks = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         labels = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         limits = ylim) +
+      ylab("Odds Ratio") + xlab("Cohort") + theme 
+    # agaist period
+    cohortperiod <- ggplot() +
+      geom_line(data    = dat_overallEffect,
+                mapping = aes(x = cohort, y = exp_effect, group = period,
+                              col = period)) +
+      scale_color_continuous(low = "grey90", high = "grey10",
+                             name = "Period",
+                             breaks = as.integer(c(2010, 1980))) +
+      geom_line(data = dat_cohort,
+                mapping = aes(x = value, y = exp_effect),
+                size = 1.5, col = "RoyalBlue3", alpha = 0.8) +
+      scale_y_continuous(trans  = "log",
+                         breaks = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         labels = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
+                                    0.5, 1, 2, 4, 8),
+                         limits = ylim) +
+      theme + theme(axis.text.y = element_blank()) + ylab(" ") + xlab("Cohort")
+    # both plots
+    plots <- ggarrange(plotlist = list(cohortage, cohortperiod), ncol = 2,
+                       legend = "bottom")
+  }
+  # Return of the function:
+  return(plots)
+}
+
+################################################################################
+
+# Function to extract the summary of a GAM or BAM model:
+
+extract_modelSummary <- function(model, include_expCoefs = FALSE) {
+  
+  checkmate::check_class(model, classes = "gam")
+  checkmate::check_logical(include_expCoefs)
+  
+  x <- mgcv::summary.gam(model)$p.table
+  dat <- data.frame("param"    = row.names(x),
+                    "coef"     = unname(x[,1]),
+                    "se"       = unname(x[,2]),
+                    "CI_lower" = unname(x[,1] - qnorm(0.975) * x[,2]),
+                    "CI_upper" = unname(x[,1] + qnorm(0.975) * x[,2]),
+                    "pvalue"   = unname(x[,4]),
+                    stringsAsFactors = FALSE) %>%
+    mutate(param = factor(param, levels = row.names(x)))
+  if (include_expCoefs) {
+    # confidence intervals on exp scale are based on delta method
+    dat <- dat %>%
+      mutate(coef_exp = exp(coef),
+             se_exp = sqrt(se^2 * exp(coef)^2)) %>%
+      mutate(CI_lower_exp = coef_exp - qnorm(0.975) * se_exp,
+             CI_upper_exp = coef_exp + qnorm(0.975) * se_exp) %>%
+      select(param, coef, se, CI_lower, CI_upper,
+             coef_exp, se_exp, CI_lower_exp, CI_upper_exp, pvalue)
+  }
+  
+  return(dat)
+}
 
 
+################################################################################
+
+# Function in order to visualize effects of other covariates than age, period
+# and cohort:
+plot_covariates <- function(model, data) {
+  
+  # Creation of plot data:
+  plot_dat <- extract_modelSummary(model = model, include_expCoefs = TRUE)
+  
+  # ggplot theme:
+  theme <- theme_minimal() +
+    theme(text = element_text(size = 12), axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          legend.text = element_text(size = 12),
+          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+          strip.text.y = element_text(size = 12), legend.text.align = 0,
+          strip.placement = "outside", strip.background = element_blank(),
+          axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
+          axis.title.x = element_text(margin = margin(10, 0, 0, 0))) 
+  
+  # Household size:
+  plot_dat1 <- plot_dat %>%
+    filter(grepl("Haushalt", param)) %>%
+    mutate(param = gsub("S_Haushaltsgroesse", "", param),
+           param = gsub("5 Personen und mehr", expression("">=5), param),
+           param = gsub(" Personen", "", param),
+           param = factor(param, levels = c("2","3","4",expression("">=5))))
+  gg_householdSize <- ggplot(plot_dat1, aes(x = param, y = coef_exp)) +
+    geom_hline(yintercept = 1, col = "red") +
+    geom_point() +
+    geom_pointrange(mapping = aes(ymin = CI_lower_exp, ymax = CI_upper_exp)) +
+    scale_x_discrete(
+      breaks = c("2","3","4",expression("">=5)),
+      label = c("2","3","4",expression("">=5))
+    )+
+    xlab("Household size [Persons]") +
+    scale_y_continuous("Odds Ratio", 
+                       trans  = "log",
+                       breaks = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
+                       labels = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
+                       limits = ylim) +
+    theme +
+    theme(panel.grid.minor.y = element_blank())
+  
+  # Income:
+  x <- plot(model, select = 2)
+  effect_dat <- data.frame(income = x[[2]]$x,
+                           estimate = as.vector(x[[2]]$fit),
+                           se = as.vector(x[[2]]$se)) %>%
+    mutate(exp_estimate = exp(estimate),
+           exp_se = sqrt(se^2 * exp_estimate^2),
+           CIlower = exp_estimate - qnorm(0.975) * exp_se,
+           CIupper = exp_estimate + qnorm(0.975) * exp_se)
+  effect_dat <- effect_dat %>% filter(income != max(income))
+  plot_dat2 <- data.frame(income = c(effect_dat$income,
+                                     rev(effect_dat$income),
+                                     effect_dat$income),
+                           value = c(effect_dat$exp_estimate,
+                                     rev(effect_dat$CIlower),
+                                     effect_dat$CIupper),
+                           type = rep(c("exp_estimate", "CIlower", "CIupper"),
+                                      each = nrow(effect_dat)))
+  gg_income <- ggplot() +
+    geom_hline(yintercept = 1, col = "red") +
+    geom_polygon(data = plot_dat2 %>% filter(type != "exp_estimate"), 
+                 aes(x = income, y = value), fill = gray(0.7)) +
+    geom_line(data = plot_dat2 %>%
+                filter(type == "exp_estimate"), aes(x = income, y = value)) +
+    scale_x_continuous("Household income [€ / month]",
+                       breaks = c(0,3000,6000,9000),
+                       labels = c("0","3,000","6,000","9,000")) +
+    scale_y_continuous("Odds Ratio", 
+                       trans  = "log",
+                       breaks = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
+                       labels = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
+                       limits = ylim) +
+    theme +
+    theme(axis.title.y = element_blank(),
+          axis.text.y  = element_blank(),
+          axis.ticks.y = element_blank(),
+          panel.grid.minor.y = element_blank())
+  
+  
+  # Trip length
+  plot_dat3 <- plot_dat %>%
+    filter(grepl("Reisedauer", param)) %>%
+    mutate(param = gsub("JS_HUR_Reisedauer", "", param),
+           param = gsub("30 Tage und mehr", expression("">=30), param),
+           param = gsub(" Tage", "", param),
+           param = gsub(" bis ", "-", param),
+           param = factor(param, levels = c("6-8", "9-12", "13-15", "16-19",
+                                            "20-22","23-26", "27-29",
+                                            expression("">=30))))
+  gg_tripDuration <- ggplot(plot_dat3, aes(x = param, y = coef_exp)) +
+    geom_hline(yintercept = 1, col = "red") +
+    geom_point() +
+    geom_pointrange(mapping = aes(ymin = CI_lower_exp, ymax = CI_upper_exp)) +
+    xlab("Trip duration [days]") +
+    scale_x_discrete(
+      breaks = c("6-8","9-12","13-15","16-19",
+                 "20-22","23-26","27-29",expression("">=30)),
+      label = c("6-8","9-12","13-15","16-19",
+                "20-22","23-26","27-29",expression("">=30))
+    ) +
+    scale_y_continuous("Odds Ratio", 
+                       trans  = "log",
+                       breaks = c(0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32, 64, 128),
+                       labels = c("", 0.25, "", 1, "", 4, "", 16, "", 64, ""),
+                       limits = c(ylim[1], 192)) +
+    theme +
+    theme(panel.grid.minor.y = element_blank())
+  
+  # Resulting layout
+  plots <-ggpubr::ggarrange(gg_householdSize, gg_income, 
+                            nrow = 1, ncol = 2, heights = c(0.5,0.5),
+                            widths = c(0.35,0.65)) 
+  plots <- ggpubr::ggarrange(plots, gg_tripDuration, nrow = 2, ncol = 1)
+  return(plots)
+}
+
+################################################################################
+
+# Function in order to compare marginal effects of pure and covariate model:
+compare_pure_covariate <- function(model_pure, model_covariate, data) {
+  
+  # Extraction of marginal effects:
+  categories <- c("< 500 km", "500 - 1,000 km", "1,000 - 2,000 km",
+                  "2,000 - 6,000 km", "> 6,000 km")
+  ages    <- min(data$age):max(data$age)
+  periods <- min(data$period):max(data$period)
+  
+  # Pure model:
+  dat_overallEffect <- expand.grid(age = ages, period = periods) %>%
+    mutate(effect = rowSums(predict(object = model_pure, newdata = .,
+                                    type = "terms",
+                                    terms = c("te(period,age)")))) %>%
+    mutate(cohort = period - age)
+  dat_pureAgeEffect <- dat_overallEffect %>%
+    group_by(age) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
+    mutate(exp_effect = exp(effect - mean(effect)))
+  dat_purePeriodEffect <- dat_overallEffect %>%
+    group_by(period) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
+    mutate(exp_effect = exp(effect - mean(effect)))
+  dat_pureCohortEffect <- dat_overallEffect %>%
+    group_by(cohort) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
+    mutate(exp_effect = exp(effect - mean(effect)))
+  
+  # Covariate model:
+  dat_overallEffect <- expand.grid(age = ages,
+                                   period = periods,
+                                   S_Einkommen_HH = data$S_Einkommen_HH[1],
+                                   S_Haushaltsgroesse = data$S_Haushaltsgroesse[1],
+                                   JS_HUR_Reisedauer = data$JS_HUR_Reisedauer[1]) %>%
+    mutate(effect = predict(object = model_covariate, newdata = .,
+                            type = "terms", terms = "te(period,age)"),
+           cohort = period - age)
+  dat_covariateAgeEffect <- dat_overallEffect %>%
+    group_by(age) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
+    mutate(exp_effect = exp(effect - mean(effect)))
+  dat_covariatePeriodEffect <- dat_overallEffect %>%
+    group_by(period) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
+    mutate(exp_effect = exp(effect - mean(effect))) 
+  dat_covariateCohortEffect <- dat_overallEffect %>%
+    group_by(cohort) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
+    mutate(exp_effect = exp(effect - mean(effect)))
+  
+  # Joining of effects of both model types into a data.frame:
+  dat_pureAgeEffect <- dat_pureAgeEffect %>%
+    mutate(model = "Pure APC model")
+  dat_purePeriodEffect <- dat_purePeriodEffect %>%
+    mutate(model = "Pure APC model")
+  dat_pureCohortEffect <- dat_pureCohortEffect %>%
+    mutate(model = "Pure APC model")
+  dat_overallAgeEffect <- dat_covariateAgeEffect %>%
+    mutate(model = "Covariate model") %>% dplyr::bind_rows(dat_pureAgeEffect)
+  dat_overallPeriodEffect <- dat_covariatePeriodEffect %>%
+    mutate(model = "Covariate model") %>% dplyr::bind_rows(dat_purePeriodEffect)
+  dat_overallCohortEffect <- dat_covariateCohortEffect %>%
+    mutate(model = "Covariate model") %>% dplyr::bind_rows(dat_pureCohortEffect)
+  
+  # Actual plotting:
+  ylim <- c(0.1,12)
+  theme <- theme_minimal() +
+    theme(text = element_text(size = 12), axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          legend.text = element_text(size = 12),
+          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+          strip.text.y = element_text(size = 12), legend.text.align = 0,
+          strip.placement = "outside", strip.background = element_blank(),
+          axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
+          axis.title.x = element_text(margin = margin(10, 0, 0, 0)))
+  # Age plot:
+  gg_age <- ggplot(data = dat_overallAgeEffect,
+                   mapping = aes(x = age, y = exp_effect, lty = model)) +
+    geom_hline(yintercept = 1, col = "red") +
+    geom_line() +
+    xlab("Age") +
+    scale_y_continuous("Odds Ratio",
+                       trans  = "log",
+                       breaks = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
+                       labels = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
+                       limits = ylim) +
+    theme +
+    theme(legend.position = "bottom", legend.title = element_blank())
+  # Period plot:
+  gg_period <- ggplot(data = dat_overallPeriodEffect,
+                      mapping = aes(x = period, y = exp_effect, lty = model)) +
+    geom_hline(yintercept = 1, col = "red") +
+    geom_line() +
+    xlab("Period") +
+    scale_y_continuous("Odds Ratio",
+                       trans  = "log",
+                       breaks = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
+                       labels = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
+                       limits = ylim) +
+    theme + 
+    theme(legend.position = "bottom", legend.title = element_blank()) 
+  # Cohort plot:
+  dat_th <- data.frame(variable = "Cohort",
+                       threshold = c(1938.5, 1946.5, 1966.5, 1982.5, 1994.5))
+  gg_cohort <- ggplot(data = dat_overallCohortEffect,
+                      mapping = aes(x = cohort, y = exp_effect, lty = model)) +
+    geom_hline(yintercept = 1, col = "red") +
+    geom_vline(data = dat_th, aes(xintercept = threshold, class = variable),
+               lty = 2, col = gray(0.75)) + 
+    geom_line() +
+    xlab("Cohort") +
+    scale_y_continuous("Odds Ratio",
+                       trans  = "log",
+                       breaks = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
+                       labels = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
+                       limits = ylim) +
+    theme_minimal(base_size = 18) +
+    theme(legend.position = "bottom", legend.title = element_blank())
+  # Resulting layout:
+  plots <- ggpubr::ggarrange(gg_age, gg_period, gg_cohort, nrow = 1,
+                             legend = "bottom", common.legend = TRUE) 
+  return(plots)
+}
+
+################################################################################
 
 

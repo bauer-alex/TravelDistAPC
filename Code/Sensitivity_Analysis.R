@@ -58,7 +58,6 @@ model_list_pure <- lapply(X = 1:5, FUN = function(i) {
 })
 
 # Evaluation of pure APC models via AUC:
-set.seed(5678)
 auc_list_pure <- lapply(1:5, function(i) {
   calculate_auc(data = data_west, target = i, method = "gam")
 })
@@ -70,7 +69,25 @@ heatmaps <- lapply(X = model_list_pure, FUN = function(i) {
 })
 
 # Visualization of marginal effects of all distance categories:
-plot_marginal_effects(model_list = model_list_pure, data = data_west)
+plot_marginal_effects(model_list = model_list_pure, data = data_west,
+                      type = "pure")
+
+# Visualization of partial APC plots:
+# Age:
+partial_plots_age <- lapply(X = model_list_pure, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "age")
+  return(plots)
+})
+# Period:
+partial_plots_period <- lapply(X = model_list_pure, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "period")
+  return(plots)
+})
+# Cohort:
+partial_plots_cohort <- lapply(X = model_list_pure, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "cohort")
+  return(plots)
+})
 
 
 ################################################################################
@@ -84,14 +101,49 @@ model_list_covariate <- lapply(X = 1:5, FUN = function(i) {
 })
 
 # Evaluation of covariate APC models via AUC:
-set.seed(5678)
 auc_list_covariate <- lapply(1:5, function(i) {
-  calculate_auc(data = data_west, target = i, method = "gam", type = "covariate")
+  calculate_auc(data = data_west, target = i, method = "gam",
+                type = "covariate")
 })
 
 # Visualization of estimated tensor product surfaces via heatmaps:
 heatmaps <- lapply(X = model_list_covariate, FUN = function(i) {
   plots <- plot_heatmap(model = i, data = data_west, type = "covariate")
+  return(plots)
+})
+
+# Visualization of marginal effects of all distance categories:
+plot_marginal_effects(model_list = model_list_covariate, data = data_west,
+                      type = "covariate")
+
+# Visualization of partial APC plots:
+# Age:
+partial_plots_age <- lapply(X = model_list_covariate, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "age")
+  return(plots)
+})
+# Period:
+partial_plots_period <- lapply(X = model_list_covariate, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "period")
+  return(plots)
+})
+# Cohort:
+partial_plots_cohort <- lapply(X = model_list_covariate, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "cohort")
+  return(plots)
+})
+
+# Visualization of other covariates' effects:
+plots_covariates <- lapply(X = model_list_covariate, FUN = function(i) {
+  plots <- plot_covariates(model = i, data = data_west)
+  return(plots)
+})
+
+# Comparison of marginal effects between pure and covariate APC models:
+comparison_plots <- lapply(X = 1:5, FUN = function(i) {
+  plots <- compare_pure_covariate(model_pure = model_list_pure[[i]],
+                                  model_covariate = model_list_covariate[[i]],
+                                  data = data_west)
   return(plots)
 })
 
@@ -107,7 +159,7 @@ heatmaps <- lapply(X = model_list_covariate, FUN = function(i) {
 
 # Filtering for German citizens:
 data_german <- data %>% filter(is.na(S_Staatsangehoerigkeit) |
-                                 S_Staatsangehoerigkeit == "West")
+                                 S_Staatsangehoerigkeit == "Deutsch")
 
 
 ################################################################################
@@ -118,7 +170,7 @@ data_german <- data %>% filter(is.na(S_Staatsangehoerigkeit) |
 freq_periods(data_german)
 
 # Individual distance curve for travelers in 2018:
-plot_ridgeline(data_german, period = 2018, weighted = TRUE)
+plot_ridgeline(data = data_german, period = 2018, weighted = TRUE)
 
 # Ridgeline matrix:
 ridgeline_matrix(data = data_german, ages = list(20, 30, 40, 50, 60, 70, 80),
@@ -141,7 +193,6 @@ model_list_pure <- lapply(X = 1:5, FUN = function(i) {
 })
 
 # Evaluation of pure APC models via AUC:
-set.seed(5678)
 auc_list_pure <- lapply(1:5, function(i) {
   calculate_auc(data = data_german, target = i, method = "gam")
 })
@@ -153,7 +204,27 @@ heatmaps <- lapply(X = model_list_pure, FUN = function(i) {
 })
 
 # Visualization of marginal effects of all distance categories:
-plot_marginal_effects(model_list = model_list_pure, data = data_german)
+plot_marginal_effects(model_list = model_list_pure, data = data_german,
+                      type = "pure")
+
+# Visualization of partial APC plots:
+# Age:
+partial_plots_age <- lapply(X = model_list_pure, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_german, variable = "age")
+  return(plots)
+})
+# Period:
+partial_plots_period <- lapply(X = model_list_pure, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_german,
+                             variable = "period")
+  return(plots)
+})
+# Cohort:
+partial_plots_cohort <- lapply(X = model_list_pure, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_german,
+                             variable = "cohort")
+  return(plots)
+})
 
 
 ################################################################################
@@ -167,9 +238,9 @@ model_list_covariate <- lapply(X = 1:5, FUN = function(i) {
 })
 
 # Evaluation of covariate APC models via AUC:
-set.seed(5678)
 auc_list_covariate <- lapply(1:5, function(i) {
-  calculate_auc(data = data_german, target = i, method = "gam", type = "covariate")
+  calculate_auc(data = data_german, target = i, method = "gam",
+                type = "covariate")
 })
 
 # Visualization of estimated tensor product surfaces via heatmaps:
@@ -177,4 +248,44 @@ heatmaps <- lapply(X = model_list_covariate, FUN = function(i) {
   plots <- plot_heatmap(model = i, data = data_german, type = "covariate")
   return(plots)
 })
+
+# Visualization of marginal effects of all distance categories:
+plot_marginal_effects(model_list = model_list_covariate, data = data_german,
+                      type = "covariate")
+
+# Visualization of partial APC plots:
+# Age:
+partial_plots_age <- lapply(X = model_list_covariate, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_german, variable = "age")
+  return(plots)
+})
+# Period:
+partial_plots_period <- lapply(X = model_list_covariate, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_german,
+                             variable = "period")
+  return(plots)
+})
+# Cohort:
+partial_plots_cohort <- lapply(X = model_list_covariate, FUN = function(i) {
+  plots <- partial_APC_plots(model = i, data = data_german,
+                             variable = "cohort")
+  return(plots)
+})
+
+# Visualization of other covariates' effects:
+plots_covariates <- lapply(X = model_list_covariate, FUN = function(i) {
+  plots <- plot_covariates(model = i, data = data_german)
+  return(plots)
+})
+
+# Comparison of marginal effects between pure and covariate APC models:
+comparison_plots <- lapply(X = 1:5, FUN = function(i) {
+  plots <- compare_pure_covariate(model_pure = model_list_pure[[i]],
+                                  model_covariate = model_list_covariate[[i]],
+                                  data = data_german)
+  return(plots)
+})
+
+
+###############################################################################
 
