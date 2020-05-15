@@ -13,7 +13,7 @@ Folder structure:
 
 - Code: Code for the main analyses and the sensitivity analyses, both building on functions in `Functions.R`
 - Data: Above described sample from the full dataset
-- Graphics: Figures of the paper
+- Graphics: Figures, reproduced on the sample data. Codes for Figures 1 and 2 are not contained in this repository.
 - Models: Estimated model objects (based on the data sample)
 
 
