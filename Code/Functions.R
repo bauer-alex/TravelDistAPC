@@ -1,7 +1,7 @@
 ### File containing functions needed for APC analysis paper:
 
 
-################################################################################
+#################################################################################
 
 # Function to prepare data for further analyses:
 data_preparation <- function(data, thresholds, labels) {
