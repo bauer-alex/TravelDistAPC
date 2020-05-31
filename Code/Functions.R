@@ -1072,27 +1072,8 @@ plot_covariates <- function(model, data) {
            exp_se = sqrt(se^2 * exp_estimate^2),
            CIlower = exp_estimate - qnorm(0.975) * exp_se,
            CIupper = exp_estimate + qnorm(0.975) * exp_se)
-           #CIlower = ifelse(test = CIlower < ylim[1], yes = ylim[1],
-          #                  no = CIlower),
-          # CIupper = ifelse(test = CIupper > ylim[2], yes = ylim[2],
-           #                 no = CIupper))
-  #plot_dat2 <- effect_dat
-  #plot_dat2 <- data.frame(income = c(effect_dat$income,
-  #                                   rev(effect_dat$income),
-  #                                   effect_dat$income),
-  #                        value = c(effect_dat$exp_estimate,
-  #                                   rev(effect_dat$CIlower),
-  #                                   effect_dat$CIupper),
-  #                         type = rep(c("exp_estimate", "CIlower", "CIupper"),
-  #                                    each = nrow(effect_dat)))
-  #plot_dat2$value <- ifelse(test = plot_dat2$value < 0.01, yes = 0.01,
-  #                          no = plot_dat2$value)
   gg_income <- ggplot(data = plot_dat2, mapping = aes(x = income, y = exp_estimate)) +
     geom_hline(yintercept = 1, col = "red") + geom_line() +
-    #geom_polygon(data = plot_dat2 %>% filter(type != "exp_estimate"), 
-    #             aes(x = income, y = value), fill = gray(0.7)) +
-    #geom_line(data = plot_dat2 %>%
-    #            filter(type == "exp_estimate"), aes(x = income, y = value)) +
     geom_ribbon(mapping = aes(ymin = CIlower, ymax = CIupper), alpha = 0.3) +
     scale_x_continuous("Household income [€ / month]",
                        breaks = c(0, 3000, 6000, 9000),
