@@ -75,17 +75,20 @@ plot_marginal_effects(model_list = model_list_pure, data = data_west,
 # Visualization of partial APC plots:
 # Age:
 partial_plots_age <- lapply(X = model_list_pure, FUN = function(i) {
-  plots <- partial_APC_plots(model = i, data = data_west, variable = "age")
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "age",
+                             type = "pure")
   return(plots)
 })
 # Period:
 partial_plots_period <- lapply(X = model_list_pure, FUN = function(i) {
-  plots <- partial_APC_plots(model = i, data = data_west, variable = "period")
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "period",
+                             type = "pure")
   return(plots)
 })
 # Cohort:
 partial_plots_cohort <- lapply(X = model_list_pure, FUN = function(i) {
-  plots <- partial_APC_plots(model = i, data = data_west, variable = "cohort")
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "cohort",
+                             type = "pure")
   return(plots)
 })
 
@@ -119,17 +122,20 @@ plot_marginal_effects(model_list = model_list_covariate, data = data_west,
 # Visualization of partial APC plots:
 # Age:
 partial_plots_age <- lapply(X = model_list_covariate, FUN = function(i) {
-  plots <- partial_APC_plots(model = i, data = data_west, variable = "age")
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "age",
+                             type = "covariate")
   return(plots)
 })
 # Period:
 partial_plots_period <- lapply(X = model_list_covariate, FUN = function(i) {
-  plots <- partial_APC_plots(model = i, data = data_west, variable = "period")
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "period",
+                             type = "covariate")
   return(plots)
 })
 # Cohort:
 partial_plots_cohort <- lapply(X = model_list_covariate, FUN = function(i) {
-  plots <- partial_APC_plots(model = i, data = data_west, variable = "cohort")
+  plots <- partial_APC_plots(model = i, data = data_west, variable = "cohort",
+                             type = "covariate")
   return(plots)
 })
 

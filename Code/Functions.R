@@ -807,7 +807,7 @@ plot_marginal_effects <- function(model_list, data, type = "pure") {
 ################################################################################
 
 # Function in order to visualize partial APC plots:
-partial_APC_plots <- function(model, data, variable) {
+partial_APC_plots <- function(model, data, variable, type = "pure") {
   
   # Definition of a grid:
   categories <- c("< 500 km", "500 - 1,000 km", "1,000 - 2,000 km",
@@ -818,10 +818,18 @@ partial_APC_plots <- function(model, data, variable) {
   
   # Data preparation:
   dat_overallEffect <- expand.grid(age = ages,
-                                   period = periods) %>%
-    mutate(effect = rowSums(predict(object = model, newdata = ., type = "terms",
+                                   period = periods)
+  if (type == "covariate") {
+    dat_overallEffect <- dat_overallEffect %>%
+      mutate(S_Einkommen_HH = mean(data$S_Einkommen_HH, na.rm = TRUE),
+             S_Haushaltsgroesse = "2 Personen",
+             JS_HUR_Reisedauer = "6 bis 8 Tage")
+  }
+  dat_overallEffect <- dat_overallEffect %>%
+    mutate(effect = rowSums(predict(object = model, newdata = .,
+                                    type = "terms",
                                     terms = c("te(period,age)"))),
-          exp_effect = exp(effect - mean(effect))) %>%
+           exp_effect = exp(effect - mean(effect))) %>%
     mutate(cohort = period - age)
   dat_age <- dat_overallEffect %>%
     group_by(age) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
@@ -1000,7 +1008,7 @@ extract_modelSummary <- function(model, include_expCoefs = FALSE) {
              se_exp = sqrt(se^2 * exp(coef)^2)) %>%
       mutate(CI_lower_exp = coef_exp - qnorm(0.975) * se_exp,
              CI_upper_exp = coef_exp + qnorm(0.975) * se_exp) %>%
-      select(param, coef, se, CI_lower, CI_upper,
+      dplyr::select(param, coef, se, CI_lower, CI_upper,
              coef_exp, se_exp, CI_lower_exp, CI_upper_exp, pvalue)
   }
   
@@ -1016,6 +1024,7 @@ plot_covariates <- function(model, data) {
   
   # Creation of plot data:
   plot_dat <- extract_modelSummary(model = model, include_expCoefs = TRUE)
+  ylim <- c(0.1, 8)
   
   # ggplot theme:
   theme <- theme_minimal() +
@@ -1035,14 +1044,15 @@ plot_covariates <- function(model, data) {
            param = gsub("5 Personen und mehr", expression("">=5), param),
            param = gsub(" Personen", "", param),
            param = factor(param, levels = c("2","3","4",expression("">=5))))
-  gg_householdSize <- ggplot(plot_dat1, aes(x = param, y = coef_exp)) +
+  gg_householdSize <- ggplot(data = plot_dat1,
+                             mapping = aes(x = param, y = coef_exp)) +
     geom_hline(yintercept = 1, col = "red") +
     geom_point() +
     geom_pointrange(mapping = aes(ymin = CI_lower_exp, ymax = CI_upper_exp)) +
     scale_x_discrete(
       breaks = c("2","3","4",expression("">=5)),
       label = c("2","3","4",expression("">=5))
-    )+
+    ) +
     xlab("Household size [Persons]") +
     scale_y_continuous("Odds Ratio", 
                        trans  = "log",
@@ -1054,30 +1064,38 @@ plot_covariates <- function(model, data) {
   
   # Income:
   x <- plot(model, select = 2)
-  effect_dat <- data.frame(income = x[[2]]$x,
+  plot_dat2 <- data.frame(income = x[[2]]$x,
                            estimate = as.vector(x[[2]]$fit),
                            se = as.vector(x[[2]]$se)) %>%
+    filter(income < 10500) %>% 
     mutate(exp_estimate = exp(estimate),
            exp_se = sqrt(se^2 * exp_estimate^2),
            CIlower = exp_estimate - qnorm(0.975) * exp_se,
            CIupper = exp_estimate + qnorm(0.975) * exp_se)
-  effect_dat <- effect_dat %>% filter(income != max(income))
-  plot_dat2 <- data.frame(income = c(effect_dat$income,
-                                     rev(effect_dat$income),
-                                     effect_dat$income),
-                           value = c(effect_dat$exp_estimate,
-                                     rev(effect_dat$CIlower),
-                                     effect_dat$CIupper),
-                           type = rep(c("exp_estimate", "CIlower", "CIupper"),
-                                      each = nrow(effect_dat)))
-  gg_income <- ggplot() +
-    geom_hline(yintercept = 1, col = "red") +
-    geom_polygon(data = plot_dat2 %>% filter(type != "exp_estimate"), 
-                 aes(x = income, y = value), fill = gray(0.7)) +
-    geom_line(data = plot_dat2 %>%
-                filter(type == "exp_estimate"), aes(x = income, y = value)) +
+           #CIlower = ifelse(test = CIlower < ylim[1], yes = ylim[1],
+          #                  no = CIlower),
+          # CIupper = ifelse(test = CIupper > ylim[2], yes = ylim[2],
+           #                 no = CIupper))
+  #plot_dat2 <- effect_dat
+  #plot_dat2 <- data.frame(income = c(effect_dat$income,
+  #                                   rev(effect_dat$income),
+  #                                   effect_dat$income),
+  #                        value = c(effect_dat$exp_estimate,
+  #                                   rev(effect_dat$CIlower),
+  #                                   effect_dat$CIupper),
+  #                         type = rep(c("exp_estimate", "CIlower", "CIupper"),
+  #                                    each = nrow(effect_dat)))
+  #plot_dat2$value <- ifelse(test = plot_dat2$value < 0.01, yes = 0.01,
+  #                          no = plot_dat2$value)
+  gg_income <- ggplot(data = plot_dat2, mapping = aes(x = income, y = exp_estimate)) +
+    geom_hline(yintercept = 1, col = "red") + geom_line() +
+    #geom_polygon(data = plot_dat2 %>% filter(type != "exp_estimate"), 
+    #             aes(x = income, y = value), fill = gray(0.7)) +
+    #geom_line(data = plot_dat2 %>%
+    #            filter(type == "exp_estimate"), aes(x = income, y = value)) +
+    geom_ribbon(mapping = aes(ymin = CIlower, ymax = CIupper), alpha = 0.3) +
     scale_x_continuous("Household income [€ / month]",
-                       breaks = c(0,3000,6000,9000),
+                       breaks = c(0, 3000, 6000, 9000),
                        labels = c("0","3,000","6,000","9,000")) +
     scale_y_continuous("Odds Ratio", 
                        trans  = "log",
@@ -1121,9 +1139,9 @@ plot_covariates <- function(model, data) {
     theme(panel.grid.minor.y = element_blank())
   
   # Resulting layout
-  plots <-ggpubr::ggarrange(gg_householdSize, gg_income, 
-                            nrow = 1, ncol = 2, heights = c(0.5,0.5),
-                            widths = c(0.35,0.65)) 
+  plots <- ggpubr::ggarrange(gg_householdSize, gg_income, 
+                             nrow = 1, ncol = 2, heights = c(0.5, 0.5),
+                             widths = c(0.35, 0.65)) 
   plots <- ggpubr::ggarrange(plots, gg_tripDuration, nrow = 2, ncol = 1)
   return(plots)
 }

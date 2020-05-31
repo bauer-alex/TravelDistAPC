@@ -75,7 +75,8 @@ plot_marginal_effects(model_list = model_list_pure, data = data, type = "pure")
 # Visualization of partial APC plots:
 # Age:
 partial_plots_age <- lapply(X = model_list_pure, FUN = function(i) {
-  plots <- partial_APC_plots(model = i, data = data, variable = "age")
+  plots <- partial_APC_plots(model = i, data = data, variable = "age",
+                             type = "pure")
   return(plots)
 })
 # Period:
@@ -121,17 +122,20 @@ plot_marginal_effects(model_list = model_list_covariate, data = data,
 # Visualization of partial APC plots:
 # Age:
 partial_plots_age <- lapply(X = model_list_covariate, FUN = function(i) {
-  plots <- partial_APC_plots(model = i, data = data, variable = "age")
+  plots <- partial_APC_plots(model = i, data = data, variable = "age",
+                             type = "covariate")
   return(plots)
 })
 # Period:
 partial_plots_period <- lapply(X = model_list_covariate, FUN = function(i) {
-  plots <- partial_APC_plots(model = i, data = data, variable = "period")
+  plots <- partial_APC_plots(model = i, data = data, variable = "period",
+                             type = "covariate")
   return(plots)
 })
 # Cohort:
 partial_plots_cohort <- lapply(X = model_list_covariate, FUN = function(i) {
-  plots <- partial_APC_plots(model = i, data = data, variable = "cohort")
+  plots <- partial_APC_plots(model = i, data = data, variable = "cohort",
+                             type = "covariate")
   return(plots)
 })
 
