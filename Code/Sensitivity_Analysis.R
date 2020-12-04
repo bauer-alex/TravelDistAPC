@@ -1,4 +1,4 @@
-### This contains the sensitivity analyses done for the
+### This file contains the sensitivity analyses done for the
 ### publication "Semiparametric APC analysis of destination choice patterns:
 ### Using Generalized Additive Models to Quantify the Impact of Age, Period
 ### and Cohort on Travel Distances".
