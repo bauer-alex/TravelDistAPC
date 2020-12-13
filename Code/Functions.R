@@ -30,7 +30,7 @@ data_preparation <- function(data, thresholds, labels) {
 
 ################################################################################
 
-# Function to visualize frequencies of travel distance catgeories over periods:
+# Function to visualize frequencies of travel distance categories over periods:
 freq_periods <- function(data, xlab = "Period", ylab = "Relative frequency",
                          legend_title = "Distance category") {
   
@@ -38,11 +38,11 @@ freq_periods <- function(data, xlab = "Period", ylab = "Relative frequency",
   
   # Creation of graphical output:
   theme <- theme_minimal() +
-    theme(text = element_text(size = 12), axis.title = element_text(size = 12),
-          axis.text = element_text(size = 12),
-          legend.text = element_text(size = 12),
-          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-          strip.text.y = element_text(size = 12), legend.text.align = 0,
+    theme(text = element_text(size = 14), axis.title = element_text(size = 14),
+          axis.text = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+          strip.text.y = element_text(size = 14), legend.text.align = 0,
           strip.placement = "outside", strip.background = element_blank(),
           axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
           axis.title.x = element_text(margin = margin(10, 0, 0, 0)))
@@ -50,11 +50,12 @@ freq_periods <- function(data, xlab = "Period", ylab = "Relative frequency",
                  mapping = aes(x = travel_year,
                                fill = JS_HUR_Reisedistanz_cat)) +
     geom_bar(position = position_fill(reverse = TRUE)) + ylab(ylab) + xlab(xlab) +
-    scale_y_continuous(labels = scales::percent) + labs(fill = legend_title) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(fill = legend_title) +
     scale_fill_manual(name = "Distance category",
-                      values =c("#08306B", "#2171B5", "#4292C6", "#6BAED6",
-                                "#C6DBEF")) +
-    theme
+                      values = c("#08306B", "#2171B5", "#4292C6", "#6BAED6",
+                                 "#C6DBEF")) +
+    theme + theme(axis.text.y = element_blank())
   return(plot)
 }
 
@@ -239,11 +240,13 @@ plot_ridgeline <- function(data, age = NULL, period = NULL, cohort = NULL,
   
   # Actual plotting:
   theme <- theme_minimal() +
-    theme(text = element_text(size = 12), axis.title = element_text(size = 12),
-          axis.text = element_text(size = 12),
-          legend.text = element_text(size = 12),
-          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-          strip.text.y = element_text(size = 12), legend.text.align = 0,
+    theme(text = element_text(size = 18), axis.title = element_text(size = 18),
+          axis.text = element_text(size = 14),
+          legend.text = element_text(size = 16),
+          legend.title = element_text(size = 18),
+          plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+          strip.text.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16), legend.text.align = 0,
           strip.placement = "outside", strip.background = element_blank(),
           axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
           axis.title.x = element_text(margin = margin(10, 0, 0, 0)))
@@ -253,7 +256,8 @@ plot_ridgeline <- function(data, age = NULL, period = NULL, cohort = NULL,
       geom_ribbon(aes(ymin = 0, ymax = y, fill = travel_distance_cat)) +
       xlab(xlab) + ylab(ylab) + labs(fill = legend_title) + xlim(xlim) +
       scale_fill_brewer(palette = "Blues", direction = -1) + theme +
-      theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+      theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())+
+      guides(fill=guide_legend(nrow = 2)) + theme(legend.position = "bottom")
   }
   if (multiple == TRUE) {
     n_cat <- length(labels)
@@ -548,9 +552,8 @@ plot_heatmap <- function(model, data, type = "pure") {
            upper = effect + qnorm(0.95) * se, lower = effect - qnorm(0.95) * se, 
            exp_upper =  (exp_effect + qnorm(0.975) * exp_se),
            exp_lower = (exp_effect - qnorm(0.975) * exp_se),
-           exp_lower = ifelse(exp_lower <= 0.1, 0.1, exp_lower),
            cohort = (period - age))
-    
+  
   # Definition of thresholds:
   age_thresholds <- seq(10, 100, by = 5)
   period_thresholds <- seq(1970, 2020, by = 5)
@@ -568,6 +571,19 @@ plot_heatmap <- function(model, data, type = "pure") {
               mean_exp_upper = mean(exp_upper),
               mean_exp_lower = mean(exp_lower)) %>%
     ungroup()
+  dat_effects <- dat_effects %>%
+    mutate(mean_exp_effect = ifelse(test = mean_exp_effect < 0.1, yes = 0.1,
+                                    no = mean_exp_effect),
+           mean_exp_upper = ifelse(test = mean_exp_upper < 0.1, yes = 0.1,
+                                   no = mean_exp_effect),
+           mean_exp_lower = ifelse(test = mean_exp_lower < 0.1, yes = 0.1,
+                                   no = mean_exp_lower),
+           mean_exp_effect = ifelse(test = mean_exp_effect > 6, yes = 6,
+                                    no = mean_exp_effect),
+           mean_exp_upper = ifelse(test = mean_exp_upper > 6, yes = 6,
+                                   no = mean_exp_effect),
+           mean_exp_lower = ifelse(test = mean_exp_lower > 6, yes = 6,
+                                   no = mean_exp_lower))
   plot_dat <- full_join(plot_dat, dat_effects)
   
   # Drawing of cohort lines:
@@ -585,142 +601,140 @@ plot_heatmap <- function(model, data, type = "pure") {
   y4 <- cbind(1, x4) %*% beta4
   
   # Graphical visualization of heatmap:
-    theme <- theme_minimal() +
-      theme(text = element_text(size = 12), axis.title = element_text(size = 12),
-            axis.text = element_text(size = 12),
-            legend.text = element_text(size = 12),
-            plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-            strip.text.y = element_text(size = 12), legend.text.align = 0,
-            strip.placement = "outside", strip.background = element_blank(),
-            axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
-            axis.title.x = element_text(margin = margin(10, 0, 0, 0)))
-    limits <- range(plot_dat$mean_lower, plot_dat$mean_upper)
-    exp_limits <- range(plot_dat$mean_exp_lower, plot_dat$mean_exp_upper)
-    plot1 <- ggplot(data = plot_dat, mapping = aes(x = period, y = age,
-                                                   fill = mean_exp_effect)) +
-      geom_tile() +
-      scale_fill_gradient2(trans = "log", low = "dodgerblue3", mid = "white",
-                           high = "firebrick3",
-                           breaks = c(0.125, 0.25, 0.5, 1, 2, 4),
-                           labels = c(0.125, 0.25, 0.5, 1, 2, 4),
-                           limits = c(0.1,6), name = "Odds Ratio") +
-      ggtitle("Effect") +
-      theme + 
-      theme(legend.position = "bottom",
-            plot.title = element_text(hjust = 0.5)) +
-      guides(fill = guide_colourbar(barwidth = 17, barheight = 0.5)) +
-      geom_segment(aes(x = x1[1], xend = x1[length(x1)], y = y1[1],
-                       yend = y1[length(y1)])) +
-      geom_text(aes(x = x1[length(x1)] - 6,
-                    y = y1[length(y1)] - 4, label = "Cohort 1945 - 1949"), 
-                angle = 30, size = 4) +
-      geom_segment(aes(x = x2[1], xend = x2[length(x2)], y = y2[1],
-                       yend = y2[length(y2)])) +
-      geom_text(aes(x = x2[length(x2)] - 6,
-                    y = y2[length(y2)] - 4, label = "Cohort 1960 - 1964"), 
-                angle = 30, size = 4) +
-      geom_segment(aes(x = x3[1], xend = x3[length(x3)], y = y3[1],
-                       yend = y3[length(y3)])) +
-      geom_text(aes(x = x3[length(x3)] - 6,
-                    y = y3[length(y3)] - 4, label = "Cohort 1975 - 1979"), 
-                angle = 30, size = 4) +
-      geom_segment(aes(x = x4[1], xend = x4[length(x4)], y = y4[1],
-                       yend = y4[length(y4)])) +
-      geom_text(aes(x = x4[length(x4)] - 6,
-                    y = y4[length(y4)] - 4, label = "Cohort 1990 - 1994"), 
-                angle = 30, size = 4) +
-      ggtitle("Effect") +
-      ylab("Age") + xlab("Period")
-    plot2 <- ggplot(data = plot_dat, mapping = aes(x = period, y = age,
-                                                   fill = mean_exp_lower)) +
-      geom_tile() +
-      
-      scale_fill_gradient2(trans = "log", low = "dodgerblue3", mid = "white",
-                           high = "firebrick3",
-                           breaks = c(0.125, 0.25, 0.5, 1, 2, 4),
-                           labels = c(0.125, 0.25, 0.5, 1, 2, 4),
-                           limits = c(0.1,6), name = "Odds Ratio") +
-      ggtitle("Lower 95% CI boundary") +
-      theme + 
-      theme(legend.position = "bottom",
-            axis.text.y     = element_blank(),
-            axis.ticks.y    = element_blank(),
-            plot.title = element_text(hjust = 0.5)) +
-      guides(fill = guide_colourbar(barwidth = 17, barheight = 0.5)) +
-      geom_segment(aes(x = x1[1], xend = x1[length(x1)], y = y1[1],
-                       yend = y1[length(y1)])) +
-      geom_text(aes(x = x1[length(x1)] - 6,
-                    y = y1[length(y1)] - 4, label = "Cohort 1945 - 1949"), 
-                angle = 30, size = 4) +
-      geom_segment(aes(x = x2[1], xend = x2[length(x2)], y = y2[1],
-                       yend = y2[length(y2)])) +
-      geom_text(aes(x = x2[length(x2)] - 6,
-                    y = y2[length(y2)] - 4, label = "Cohort 1960 - 1964"), 
-                angle = 30, size = 4) +
-      geom_segment(aes(x = x3[1], xend = x3[length(x3)], y = y3[1],
-                       yend = y3[length(y3)])) +
-      geom_text(aes(x = x3[length(x3)] - 6,
-                    y = y3[length(y3)] - 4, label = "Cohort 1975 - 1979"), 
-                angle = 30, size = 4) +
-      geom_segment(aes(x = x4[1], xend = x4[length(x4)], y = y4[1],
-                       yend = y4[length(y4)])) +
-      geom_text(aes(x = x4[length(x4)] - 6,
-                    y = y4[length(y4)] - 4, label = "Cohort 1990 - 1994"), 
-                angle = 30, size = 4) +
-      ylab("Age") + xlab("Period")
-    plot3 <- ggplot(data = plot_dat, mapping = aes(x = period, y = age,
-                                                   fill = mean_exp_upper)) +
-      geom_tile() +
-      scale_fill_gradient2(trans = "log", low = "dodgerblue3", mid = "white",
-                           high = "firebrick3",
-                           breaks = c(0.125, 0.25, 0.5, 1, 2, 4),
-                           labels = c(0.125, 0.25, 0.5, 1, 2, 4),
-                           limits = c(0.1,6), name = "Odds Ratio") +
-      ggtitle("Upper 95% CI boundary") +
-      theme + 
-      theme(legend.position = "bottom",
-            axis.text.y     = element_blank(),
-            axis.ticks.y    = element_blank(),
-            plot.title = element_text(hjust = 0.5)) +
-      guides(fill = guide_colourbar(barwidth = 17, barheight = 0.5)) +
-      geom_segment(aes(x = x1[1], xend = x1[length(x1)], y = y1[1],
-                       yend = y1[length(y1)])) +
-      geom_text(aes(x = x1[length(x1)] - 6,
-                    y = y1[length(y1)] - 4, label = "Cohort 1945 - 1949"), 
-                angle = 30, size = 4) +
-      geom_segment(aes(x = x2[1], xend = x2[length(x2)], y = y2[1],
-                       yend = y2[length(y2)])) +
-      geom_text(aes(x = x2[length(x2)] - 6,
-                    y = y2[length(y2)] - 4, label = "Cohort 1960 - 1964"), 
-                angle = 30, size = 4) +
-      geom_segment(aes(x = x3[1], xend = x3[length(x3)], y = y3[1],
-                       yend = y3[length(y3)])) +
-      geom_text(aes(x = x3[length(x3)] - 6,
-                    y = y3[length(y3)] - 4, label = "Cohort 1975 - 1979"), 
-                angle = 30, size = 4) +
-      geom_segment(aes(x = x4[1], xend = x4[length(x4)], y = y4[1],
-                       yend = y4[length(y4)])) +
-      geom_text(aes(x = x4[length(x4)] - 6,
-                    y = y4[length(y4)] - 4, label = "Cohort 1990 - 1994"), 
-                angle = 30, size = 4) +
-      ylab("Age") + xlab("Period")
-     plots <- ggarrange(plotlist = list(plot1, plot2, plot3),legend = "bottom",
-                        common.legend = TRUE, ncol = 3)
+  theme <- theme_minimal() +
+    theme(text = element_text(size = 12), axis.title = element_text(size = 20),
+          axis.text = element_text(size = 18),
+          legend.text = element_text(size = 15),
+          legend.title = element_text(size = 20),
+          plot.title = element_text(hjust = 0.5, size = 22, face = "bold"),
+          strip.text.y = element_text(size = 18),
+          strip.text.x = element_text(size = 18),
+          strip.placement = "outside", strip.background = element_blank(),
+          axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
+          axis.title.x = element_text(margin = margin(10, 0, 0, 0)))
+  plot1 <- ggplot(data = plot_dat, mapping = aes(x = period, y = age,
+                                                 fill = mean_exp_effect)) +
+    geom_tile() +
+    scale_fill_gradient2(trans = "log", low = "dodgerblue3", mid = "white",
+                         high = "firebrick3",
+                         breaks = c(0.125, 0.25, 0.5, 1, 2, 4),
+                         labels = c(0.125, 0.25, 0.5, 1, 2, 4),
+                         limits = c(0.1, 6), name = "Odds Ratio") +
+    scale_x_continuous(breaks = c(1970, 1980, 1990, 2000, 2010)) + 
+    ggtitle("Effect") +
+    theme + 
+    theme(legend.position = "bottom",
+          plot.title = element_text(hjust = 0.5)) +
+    guides(fill = guide_colourbar(barwidth = 17, barheight = 0.5)) +
+    geom_segment(aes(x = x1[1], xend = x1[length(x1)], y = y1[1],
+                     yend = y1[length(y1)])) +
+    geom_text(aes(x = x1[length(x1)] - 6,
+                  y = y1[length(y1)] - 4, label = "Cohort 1945 - 1949"), 
+              angle = 30, size = 4) +
+    geom_segment(aes(x = x2[1], xend = x2[length(x2)], y = y2[1],
+                     yend = y2[length(y2)])) +
+    geom_text(aes(x = x2[length(x2)] - 6,
+                  y = y2[length(y2)] - 4, label = "Cohort 1960 - 1964"), 
+              angle = 30, size = 4) +
+    geom_segment(aes(x = x3[1], xend = x3[length(x3)], y = y3[1],
+                     yend = y3[length(y3)])) +
+    geom_text(aes(x = x3[length(x3)] - 6,
+                  y = y3[length(y3)] - 4, label = "Cohort 1975 - 1979"), 
+              angle = 30, size = 4) +
+    geom_segment(aes(x = x4[1], xend = x4[length(x4)], y = y4[1],
+                     yend = y4[length(y4)])) +
+    geom_text(aes(x = x4[length(x4)] - 6,
+                  y = y4[length(y4)] - 4, label = "Cohort 1990 - 1994"), 
+              angle = 30, size = 4) +
+    ylab("Age") + xlab("Period")
+  plot2 <- ggplot(data = plot_dat, mapping = aes(x = period, y = age,
+                                                 fill = mean_exp_lower)) +
+    geom_tile() +
+    
+    scale_fill_gradient2(trans = "log", low = "dodgerblue3", mid = "white",
+                         high = "firebrick3",
+                         breaks = c(0.125, 0.25, 0.5, 1, 2, 4),
+                         labels = c(0.125, 0.25, 0.5, 1, 2, 4),
+                         limits = c(0.1, 6), name = "Odds Ratio") +
+    scale_x_continuous(breaks = c(1970, 1980, 1990, 2000, 2010)) + 
+    ggtitle("Lower 95% CI boundary") +
+    theme + 
+    theme(legend.position = "bottom",
+          plot.title = element_text(hjust = 0.5)) +
+    guides(fill = guide_colourbar(barwidth = 17, barheight = 0.5)) +
+    geom_segment(aes(x = x1[1], xend = x1[length(x1)], y = y1[1],
+                     yend = y1[length(y1)])) +
+    geom_text(aes(x = x1[length(x1)] - 6,
+                  y = y1[length(y1)] - 4, label = "Cohort 1945 - 1949"), 
+              angle = 30, size = 4) +
+    geom_segment(aes(x = x2[1], xend = x2[length(x2)], y = y2[1],
+                     yend = y2[length(y2)])) +
+    geom_text(aes(x = x2[length(x2)] - 6,
+                  y = y2[length(y2)] - 4, label = "Cohort 1960 - 1964"), 
+              angle = 30, size = 4) +
+    geom_segment(aes(x = x3[1], xend = x3[length(x3)], y = y3[1],
+                     yend = y3[length(y3)])) +
+    geom_text(aes(x = x3[length(x3)] - 6,
+                  y = y3[length(y3)] - 4, label = "Cohort 1975 - 1979"), 
+              angle = 30, size = 4) +
+    geom_segment(aes(x = x4[1], xend = x4[length(x4)], y = y4[1],
+                     yend = y4[length(y4)])) +
+    geom_text(aes(x = x4[length(x4)] - 6,
+                  y = y4[length(y4)] - 4, label = "Cohort 1990 - 1994"), 
+              angle = 30, size = 4) +
+    ylab("Age") + xlab("Period")
+  plot3 <- ggplot(data = plot_dat, mapping = aes(x = period, y = age,
+                                                 fill = mean_exp_upper)) +
+    geom_tile() +
+    scale_fill_gradient2(trans = "log", low = "dodgerblue3", mid = "white",
+                         high = "firebrick3",
+                         breaks = c(0.125, 0.25, 0.5, 1, 2, 4),
+                         labels = c(0.125, 0.25, 0.5, 1, 2, 4),
+                         limits = c(0.1, 6), name = "Odds Ratio") +
+    scale_x_continuous(breaks = c(1970, 1980, 1990, 2000, 2010)) + 
+    ggtitle("Upper 95% CI boundary") +
+    theme + 
+    theme(legend.position = "bottom",
+          plot.title = element_text(hjust = 0.5)) +
+    guides(fill = guide_colourbar(barwidth = 17, barheight = 0.5)) +
+    geom_segment(aes(x = x1[1], xend = x1[length(x1)], y = y1[1],
+                     yend = y1[length(y1)])) +
+    geom_text(aes(x = x1[length(x1)] - 6,
+                  y = y1[length(y1)] - 4, label = "Cohort 1945 - 1949"), 
+              angle = 30, size = 4) +
+    geom_segment(aes(x = x2[1], xend = x2[length(x2)], y = y2[1],
+                     yend = y2[length(y2)])) +
+    geom_text(aes(x = x2[length(x2)] - 6,
+                  y = y2[length(y2)] - 4, label = "Cohort 1960 - 1964"), 
+              angle = 30, size = 4) +
+    geom_segment(aes(x = x3[1], xend = x3[length(x3)], y = y3[1],
+                     yend = y3[length(y3)])) +
+    geom_text(aes(x = x3[length(x3)] - 6,
+                  y = y3[length(y3)] - 4, label = "Cohort 1975 - 1979"), 
+              angle = 30, size = 4) +
+    geom_segment(aes(x = x4[1], xend = x4[length(x4)], y = y4[1],
+                     yend = y4[length(y4)])) +
+    geom_text(aes(x = x4[length(x4)] - 6,
+                  y = y4[length(y4)] - 4, label = "Cohort 1990 - 1994"), 
+              angle = 30, size = 4) +
+    ylab("Age") + xlab("Period")
+  plots <- ggarrange(plotlist = list(plot1, plot2, plot3),legend = "bottom",
+                     common.legend = TRUE, ncol = 3)
   
-   return(plots)
+  return(plots)
 }
 
 ################################################################################
 
 # Function in order to plot marginal age, period and cohort effects:
 plot_marginal_effects <- function(model_list, data, type = "pure") {
- 
-   # Extraction of marginal effects:
+  
+  # Extraction of marginal effects:
   categories <- c("< 500 km", "500 - 1,000 km", "1,000 - 2,000 km",
                   "2,000 - 6,000 km", "> 6,000 km")
   ages <- min(data$age):max(data$age)
   periods <- min(data$period):max(data$period)
-
+  
   plot_dat_list <- lapply(1:length(categories), function(i) {
     # Extraction for each individual model:
     dat_overallEffect <- expand.grid(age = ages,
@@ -771,11 +785,13 @@ plot_marginal_effects <- function(model_list, data, type = "pure") {
   
   # Actual plotting: 
   theme <- theme_minimal() +
-    theme(text = element_text(size = 12), axis.title = element_text(size = 12),
-          axis.text = element_text(size = 12),
-          legend.text = element_text(size = 12),
-          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-          strip.text.y = element_text(size = 12), legend.text.align = 0,
+    theme(text = element_text(size = 16), axis.title = element_text(size = 18),
+          axis.text = element_text(size = 14),
+          legend.text = element_text(size = 16),
+          legend.key.width = unit(2, "lines"),
+          plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+          strip.text = element_text(size = 18, face = "bold"),
+          strip.text.y = element_text(size = 16), legend.text.align = 0,
           strip.placement = "outside", strip.background = element_blank(),
           axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
           axis.title.x = element_text(margin = margin(10, 0, 0, 0)))
@@ -797,7 +813,7 @@ plot_marginal_effects <- function(model_list, data, type = "pure") {
                        labels = c("< 500 km", "500 - 1,000 km",
                                   "1,000 - 2,000 km",
                                   "2,000 - 6,000 km", "> 6,000 km")) +
-    guides(col = guide_legend(nrow = 2, byrow=FALSE)) + theme +
+    guides(col = guide_legend(nrow = 2, byrow = FALSE)) + theme +
     theme(legend.position = "bottom",
           axis.title.x    = element_blank(),
           panel.spacing = unit(2.5, "lines"))
@@ -807,7 +823,8 @@ plot_marginal_effects <- function(model_list, data, type = "pure") {
 ################################################################################
 
 # Function in order to visualize partial APC plots:
-partial_APC_plots <- function(model, data, variable, type = "pure") {
+partial_APC_plots <- function(model, data, variable, type = "pure",
+                              title = TRUE) {
   
   # Definition of a grid:
   categories <- c("< 500 km", "500 - 1,000 km", "1,000 - 2,000 km",
@@ -834,23 +851,23 @@ partial_APC_plots <- function(model, data, variable, type = "pure") {
   dat_age <- dat_overallEffect %>%
     group_by(age) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
     mutate(exp_effect = exp(effect - mean(effect)), variable = "Age") %>%
-      dplyr::rename(value = age)
+    dplyr::rename(value = age)
   dat_period <- dat_overallEffect %>%
     group_by(period) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
     mutate(exp_effect = exp(effect - mean(effect)), variable   = "Period") %>%
-      dplyr::rename(value = period)
+    dplyr::rename(value = period)
   dat_cohort <- dat_overallEffect %>%
     group_by(cohort) %>% summarize(effect = mean(effect)) %>% ungroup() %>%
     mutate(exp_effect = exp(effect - mean(effect)), variable = "Cohort") %>%
-      dplyr::rename(value = cohort)
-   
+    dplyr::rename(value = cohort)
+  
   
   theme <- theme_minimal() +
-    theme(text = element_text(size = 12), axis.title = element_text(size = 12),
-          axis.text = element_text(size = 12),
+    theme(text = element_text(size = 16), axis.title = element_text(size = 16),
+          axis.text = element_text(size = 16),
           legend.text = element_text(size = 12),
-          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-          strip.text.y = element_text(size = 12), legend.text.align = 0,
+          plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+          strip.text.y = element_text(size = 16), 
           strip.placement = "outside", strip.background = element_blank(),
           axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
           axis.title.x = element_text(margin = margin(10, 0, 0, 0))) 
@@ -861,9 +878,9 @@ partial_APC_plots <- function(model, data, variable, type = "pure") {
       geom_line(data = dat_overallEffect,
                 mapping = aes(x = age, y = exp_effect, group = period,
                               col = period)) +
-      scale_color_continuous(low = "grey90", high = "grey10", trans = "reverse",
+      scale_color_continuous(low = "grey90", high = "grey10",
                              name = "Period",
-                             breaks = as.integer(c(2010, 1980))) +
+                             breaks = as.integer(c(1980, 2010))) +
       geom_line(data = dat_age,
                 mapping = aes(x = value, y = exp_effect),
                 size = 1.5, col = "RoyalBlue3") +
@@ -873,15 +890,18 @@ partial_APC_plots <- function(model, data, variable, type = "pure") {
                          labels = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
                                     0.5, 1, 2, 4, 8),
                          limits = ylim) +
-      theme + theme(axis.text.y = element_blank()) + ylab(" ") + xlab("Age")
+      ylab("Odds Ratio") + xlab("Period") + theme
+    if (title == TRUE) {
+      ageperiod <- ageperiod + ggtitle("Age effect by periods")
+    }
     # against cohort
     agecohort <- ggplot() +
       geom_line(data    = dat_overallEffect,
                 mapping = aes(x = age, y = exp_effect, group = cohort,
                               col = cohort)) +
-      scale_color_continuous(low = "grey90", high = "grey10", trans = "reverse",
+      scale_color_continuous(low = "grey90", high = "grey10",
                              name = "Cohort",
-                             breaks = as.integer(c(2000, 1950, 1900))) +
+                             breaks = as.integer(c(1900, 1950, 2000))) +
       geom_line(data = dat_age,
                 mapping = aes(x = value, y = exp_effect),
                 size = 1.5, col = "RoyalBlue3") +
@@ -892,11 +912,14 @@ partial_APC_plots <- function(model, data, variable, type = "pure") {
                                     0.5, 1, 2, 4, 8),
                          limits = ylim) +
       theme + theme(axis.text.y = element_blank()) + ylab(" ") + xlab("Age")
+    if (title == TRUE) {
+      agecohort <- agecohort + ggtitle("Age effect by cohorts")
+    }
     # both plots:
     plots <- ggarrange(plotlist = list(ageperiod, agecohort), ncol = 2,
                        legend = "bottom")
   }
-    
+  
   # Plots for period:
   if (variable == "period") {
     # against age
@@ -914,15 +937,19 @@ partial_APC_plots <- function(model, data, variable, type = "pure") {
                          labels = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
                                     0.5, 1, 2, 4, 8),
                          limits = ylim) +
-      theme + theme(axis.text.y = element_blank()) + ylab(" ") + xlab("Period")
+      scale_x_continuous(breaks = c(1970, 1980, 1990, 2000, 2010)) + 
+      ylab("Odds Ratio") + xlab("Period") + theme
+    if (title == TRUE) {
+      periodage <- periodage + ggtitle("Period effect by age")
+    }
     # against cohort
     periodcohort <- ggplot() +
       geom_line(data    = dat_overallEffect,
                 mapping = aes(x = period, y = exp_effect, group = cohort,
                               col = cohort)) +
-      scale_color_continuous(low = "grey90", high = "grey10", trans = "reverse",
+      scale_color_continuous(low = "grey90", high = "grey10",
                              name = "Cohort",
-                             breaks = as.integer(c(2000, 1950, 1900))) +
+                             breaks = as.integer(c(1900, 1950, 2000))) +
       geom_line(data = dat_period,
                 mapping = aes(x = value, y = exp_effect),
                 size = 1.5, col = "RoyalBlue3") +
@@ -932,7 +959,11 @@ partial_APC_plots <- function(model, data, variable, type = "pure") {
                          labels = c(0.009,0.017, 0.034, 0.068, 0.125, 0.25,
                                     0.5, 1, 2, 4, 8),
                          limits = ylim) +
+      scale_x_continuous(breaks = c(1970, 1980, 1990, 2000, 2010)) +
       theme + theme(axis.text.y = element_blank()) + ylab(" ") + xlab("Period")
+    if (title == TRUE) {
+      periodcohort <- periodcohort + ggtitle("Period effect by cohorts")
+    }
     # both plots
     plots <- ggarrange(plotlist = list(periodage, periodcohort), ncol = 2,
                        legend = "bottom")
@@ -957,6 +988,9 @@ partial_APC_plots <- function(model, data, variable, type = "pure") {
                                     0.5, 1, 2, 4, 8),
                          limits = ylim) +
       ylab("Odds Ratio") + xlab("Cohort") + theme 
+    if (title == TRUE) {
+      cohortage <- cohortage + ggtitle("Cohort effect by age")
+    }
     # agaist period
     cohortperiod <- ggplot() +
       geom_line(data    = dat_overallEffect,
@@ -964,7 +998,7 @@ partial_APC_plots <- function(model, data, variable, type = "pure") {
                               col = period)) +
       scale_color_continuous(low = "grey90", high = "grey10",
                              name = "Period",
-                             breaks = as.integer(c(2010, 1980))) +
+                             breaks = as.integer(c(1980, 2010))) +
       geom_line(data = dat_cohort,
                 mapping = aes(x = value, y = exp_effect),
                 size = 1.5, col = "RoyalBlue3", alpha = 0.8) +
@@ -975,6 +1009,9 @@ partial_APC_plots <- function(model, data, variable, type = "pure") {
                                     0.5, 1, 2, 4, 8),
                          limits = ylim) +
       theme + theme(axis.text.y = element_blank()) + ylab(" ") + xlab("Cohort")
+    if (title == TRUE) {
+      cohortperiod <- cohortperiod + ggtitle("Cohort effect by periods")
+    }
     # both plots
     plots <- ggarrange(plotlist = list(cohortage, cohortperiod), ncol = 2,
                        legend = "bottom")
@@ -1009,7 +1046,7 @@ extract_modelSummary <- function(model, include_expCoefs = FALSE) {
       mutate(CI_lower_exp = coef_exp - qnorm(0.975) * se_exp,
              CI_upper_exp = coef_exp + qnorm(0.975) * se_exp) %>%
       dplyr::select(param, coef, se, CI_lower, CI_upper,
-             coef_exp, se_exp, CI_lower_exp, CI_upper_exp, pvalue)
+                    coef_exp, se_exp, CI_lower_exp, CI_upper_exp, pvalue)
   }
   
   return(dat)
@@ -1028,11 +1065,11 @@ plot_covariates <- function(model, data) {
   
   # ggplot theme:
   theme <- theme_minimal() +
-    theme(text = element_text(size = 12), axis.title = element_text(size = 12),
-          axis.text = element_text(size = 12),
-          legend.text = element_text(size = 12),
-          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-          strip.text.y = element_text(size = 12), legend.text.align = 0,
+    theme(text = element_text(size = 16), axis.title = element_text(size = 16),
+          axis.text = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+          strip.text.y = element_text(size = 16),
           strip.placement = "outside", strip.background = element_blank(),
           axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
           axis.title.x = element_text(margin = margin(10, 0, 0, 0))) 
@@ -1065,8 +1102,8 @@ plot_covariates <- function(model, data) {
   # Income:
   x <- plot(model, select = 2)
   plot_dat2 <- data.frame(income = x[[2]]$x,
-                           estimate = as.vector(x[[2]]$fit),
-                           se = as.vector(x[[2]]$se)) %>%
+                          estimate = as.vector(x[[2]]$fit),
+                          se = as.vector(x[[2]]$se)) %>%
     filter(income < 10500) %>% 
     mutate(exp_estimate = exp(estimate),
            exp_se = sqrt(se^2 * exp_estimate^2),
@@ -1190,11 +1227,11 @@ compare_pure_covariate <- function(model_pure, model_covariate, data) {
   # Actual plotting:
   ylim <- c(0.1,12)
   theme <- theme_minimal() +
-    theme(text = element_text(size = 12), axis.title = element_text(size = 12),
-          axis.text = element_text(size = 12),
-          legend.text = element_text(size = 12),
-          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-          strip.text.y = element_text(size = 12), legend.text.align = 0,
+    theme(text = element_text(size = 16), axis.title = element_text(size = 16),
+          axis.text = element_text(size = 15),
+          legend.text = element_text(size = 14),
+          plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+          strip.text.y = element_text(size = 16),
           strip.placement = "outside", strip.background = element_blank(),
           axis.title.y = element_text(margin = margin(0, 10, 0, 0)),
           axis.title.x = element_text(margin = margin(10, 0, 0, 0)))
@@ -1209,20 +1246,18 @@ compare_pure_covariate <- function(model_pure, model_covariate, data) {
                        breaks = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
                        labels = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
                        limits = ylim) +
-    theme +
-    theme(legend.position = "bottom", legend.title = element_blank())
+    theme + theme(legend.position = "bottom", legend.title = element_blank())
   # Period plot:
   gg_period <- ggplot(data = dat_overallPeriodEffect,
                       mapping = aes(x = period, y = exp_effect, lty = model)) +
     geom_hline(yintercept = 1, col = "red") +
     geom_line() +
     xlab("Period") +
-    scale_y_continuous("Odds Ratio",
-                       trans  = "log",
+    scale_y_continuous(trans  = "log",
                        breaks = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
                        labels = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
                        limits = ylim) +
-    theme + 
+    theme + theme(axis.text.y = element_blank()) + ylab(" ") +
     theme(legend.position = "bottom", legend.title = element_blank()) 
   # Cohort plot:
   dat_th <- data.frame(variable = "Cohort",
@@ -1234,12 +1269,11 @@ compare_pure_covariate <- function(model_pure, model_covariate, data) {
                lty = 2, col = gray(0.75)) + 
     geom_line() +
     xlab("Cohort") +
-    scale_y_continuous("Odds Ratio",
-                       trans  = "log",
+    scale_y_continuous(trans  = "log",
                        breaks = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
                        labels = c(0.125, 0.25, 0.5, 1, 2, 4, 8),
                        limits = ylim) +
-    theme_minimal(base_size = 18) +
+    theme + theme(axis.text.y = element_blank()) + ylab(" ") +
     theme(legend.position = "bottom", legend.title = element_blank())
   # Resulting layout:
   plots <- ggpubr::ggarrange(gg_age, gg_period, gg_cohort, nrow = 1,
