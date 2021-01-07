@@ -1,7 +1,7 @@
 Overview
 ------------
 
-This is the accompanying code repository for the paper Weigert et al. (2020) - ''Semiparametric APC Analysis of Destination Choice Patterns: Using Generalized Additive Models to Quantifythe Impact of Age, Period and Cohort on Travel Distances''.
+This is the accompanying code repository for the paper Weigert et al. (2021) - ''Semiparametric APC analysis of destination choice patterns: Using generalized additive models to quantify the impact of age, period and cohort on travel distances''.
 
 The code contains the R code for all relevant analyses in the paper, including the supplementary material.
 The data in this repository is a randomly drawn 20% sample of the full dataset, which we are not allowed to make freely available.
