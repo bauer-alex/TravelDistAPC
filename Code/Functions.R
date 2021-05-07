@@ -1107,8 +1107,8 @@ plot_covariates <- function(model, data) {
     filter(income < 10500) %>% 
     mutate(exp_estimate = exp(estimate),
            exp_se = sqrt(se^2 * exp_estimate^2),
-           CIlower = exp_estimate - qnorm(0.975) * exp_se,
-           CIupper = exp_estimate + qnorm(0.975) * exp_se)
+           CIlower = exp_estimate - exp_se,
+           CIupper = exp_estimate + exp_se)
   gg_income <- ggplot(data = plot_dat2, mapping = aes(x = income, y = exp_estimate)) +
     geom_hline(yintercept = 1, col = "red") + geom_line() +
     geom_ribbon(mapping = aes(ymin = CIlower, ymax = CIupper), alpha = 0.3) +
