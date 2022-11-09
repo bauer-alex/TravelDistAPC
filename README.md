@@ -1,7 +1,7 @@
 Overview
 ------------
 
-This is the accompanying code repository for the paper Weigert et al. (2021) - ''Semiparametric APC analysis of destination choice patterns: Using generalized additive models to quantify the impact of age, period and cohort on travel distances''.
+This is the accompanying code repository for the paper Weigert et al. (2022) - ''Association of vaccine-induced or hybrid immunity with Covid-19-related mortality during the Omicron wave - a retrospective observational study in elderly Bavarians''.
 
 The code contains the R code for all relevant analyses in the paper, including the supplementary material.
 The data in this repository is a randomly drawn 20% sample of the full dataset, which we are not allowed to make freely available.
